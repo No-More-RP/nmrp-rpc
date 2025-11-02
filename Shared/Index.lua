@@ -97,7 +97,7 @@ local function rpc_subscribe(eventName, callback, isRemote)
     registeredEvents[eventName] = {
         invokingPackage = packageName,
         callback = callback,
-        isRemote = false,
+        isRemote = isRemote,
         name = eventName
     };
 end
