@@ -41,21 +41,19 @@ local function get_next_request_id()
     return currentRequestId;
 end
 
+--- Emit a server->client RPC call. The first vararg is the target Player, the
+--- rest are the event arguments. The pending request must already be registered
+--- (see register_pending_request) — this only fires the wire call.
 ---@param eventName string
 ---@param requestId number
----@param promise Promise
 ---@vararg any
----@return any
-local function call_remote_from_server(eventName, requestId, promise, ...)
-    local promise <const> = Promise();
-    pendingRequests[requestId] = promise;
+local function emit_remote_from_server(eventName, requestId, ...)
     local args <const> = { ... };
     local player <const> = args[1]; ---@type Player
 
     table_remove(args, 1);
 
     call_remote("RPCEvents.Call", player, eventName, requestId, table_unpack(args));
-    return promise:Await();
 end
 
 ---@param eventName string
@@ -287,35 +285,73 @@ function RPCEvents.SubscribeRemote(eventName, callback)
     rpc_subscribe(eventName, callback, true);
 end
 
---- Call an RPC event.
+--- Call an RPC event and return the pending Promise WITHOUT awaiting it, so the
+--- caller can chain `:Then` / `:Catch` without being inside a coroutine.
+---
+--- ```lua
+--- RPCEvents.CallAsync("getTime"):Then(function(time) print(time); end);
+--- ```
+---@param eventName string
+---@vararg any
+---@return Promise
+function RPCEvents.CallAsync(eventName, ...)
+    local requestId <const>, promise <const> = register_pending_request(eventName);
+
+    call("RPCEvents.Call", eventName, requestId, ...);
+
+    return promise;
+end
+
+--- Call an RPC event and await the result. Must run inside a coroutine — except
+--- on the local side, where the reply is synchronous so it also works on the main
+--- thread.
+---
+--- ```lua
+--- async(function() local time <const> = RPCEvents.Call("getTime"); end);
+--- ```
 ---@async
 ---@param eventName string
 ---@vararg any
 ---@return any
 function RPCEvents.Call(eventName, ...)
-    local requestId <const>, promise <const> = register_pending_request(eventName);
-
-    call("RPCEvents.Call", eventName, requestId, ...);
-
-    return promise:Await();
+    return RPCEvents.CallAsync(eventName, ...):Await();
 end
 
---- Call an RPC event remotely.
+--- Call an RPC event remotely and return the pending Promise WITHOUT awaiting it.
+--- On the server, the first vararg is the target Player.
+---
+--- ```lua
+--- RPCEvents.CallRemoteAsync("ping", player):Then(function(r) print(r); end);
+--- ```
+---@param eventName string
+---@vararg any
+---@return Promise
+---@overload fun(eventName: string, player: Player, ...: any): Promise
+function RPCEvents.CallRemoteAsync(eventName, ...)
+    local requestId <const>, promise <const> = register_pending_request(eventName);
+
+    if (Server) then
+        emit_remote_from_server(eventName, requestId, ...);
+    else
+        call_remote("RPCEvents.Call", eventName, requestId, ...);
+    end
+
+    return promise;
+end
+
+--- Call an RPC event remotely and await the result. Must run inside a coroutine.
+--- On the server, the first vararg is the target Player.
+---
+--- ```lua
+--- async(function() local r <const> = RPCEvents.CallRemote("ping", player); end);
+--- ```
 ---@async
 ---@param eventName string
 ---@vararg any
 ---@return any
 ---@overload fun(eventName: string, player: Player, ...: any): any
 function RPCEvents.CallRemote(eventName, ...)
-    local requestId <const>, promise <const> = register_pending_request(eventName);
-
-    if (Server) then
-        return call_remote_from_server(eventName, requestId, promise, ...);
-    end
-
-    call_remote("RPCEvents.Call", eventName, requestId, ...);
-
-    return promise:Await();
+    return RPCEvents.CallRemoteAsync(eventName, ...):Await();
 end
 
 Package.Export("RPCEvents", RPCEvents);
