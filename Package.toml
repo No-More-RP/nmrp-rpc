@@ -1,9 +1,9 @@
 # vault configurations
 [meta]
     # friendly name
-    title =                 "Events RPC"
+    title =                 "NMRP RPC"
     # contributors
-    author =                "JustGodWork"
+    author =                "No More RP (JustGodWork)"
     # version
     version =               "1.1.0"
 
@@ -19,7 +19,7 @@
     compatibility_version = "1.81"
     # packages requirements
     packages_requirements = [
-                            "nanos-promise",
+                            "nmrp-promise",
     ]
     # asset packs requirements
     assets_requirements = [
