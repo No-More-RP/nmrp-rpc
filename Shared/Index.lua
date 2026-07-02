@@ -53,7 +53,7 @@ local function emit_remote_from_server(eventName, requestId, ...)
 
     table_remove(args, 1);
 
-    call_remote("RPCEvents.Call", player, eventName, requestId, table_unpack(args));
+    call_remote("RPCEvents.Call", player, Reliability.Reliable, eventName, requestId, table_unpack(args));
 end
 
 ---@param eventName string
@@ -119,10 +119,10 @@ end
 ---@param player Player | nil
 local function side_remote_rpc_reply(eventType, eventName, requestId, result, player)
     if (Server) then
-        call_remote(eventType, player, eventName, requestId, result);
+        call_remote(eventType, player, Reliability.Reliable, eventName, requestId, result);
         return;
     end
-    call_remote(eventType, eventName, requestId, result);
+    call_remote(eventType, Reliability.Reliable, eventName, requestId, result);
 end
 
 ---@see https://feedback.nanos-world.com/ideas/p/server-packages-events
@@ -333,7 +333,7 @@ function RPCEvents.CallRemoteAsync(eventName, ...)
     if (Server) then
         emit_remote_from_server(eventName, requestId, ...);
     else
-        call_remote("RPCEvents.Call", eventName, requestId, ...);
+        call_remote("RPCEvents.Call", Reliability.Reliable, eventName, requestId, ...);
     end
 
     return promise;
